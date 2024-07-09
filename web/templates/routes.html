@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>OpenStreetMap with Routes</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tempusdominus-bootstrap-4/5.39.0/css/tempusdominus-bootstrap-4.css" />
+  <style>
+   
+  </style>
+</head>
+<body>
+  
+  {% include 'side.html' %}
+  
+  <div class="main-content">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-12">
+                <div id="map"></div>
+                <br>
+                
+
+            </div>
+        </div>
+        <br>
+        <div class="row">
+            <div class="col-md-4">
+                <div id="distances-card" class="card">
+                    <div class="card-body">
+                        <h4>Distances Between Locations</h4>
+                        <p>Lorem ipsum dolor sit, amet consectetur adipisicing elit. Voluptate ab, incidunt natus, quod delectus cupiditate deleniti autem qui perferendis sequi ipsum! Illo tenetur iusto facere saepe nemo architecto eveniet quidem.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-8">
+              <div class="text-right">
+                
+                <button class="btn btn-primary btn-sm" data-toggle="modal" data-target="#locationModal">Add Location</button>
+                <button class="btn btn-danger btn-sm" onclick="getRouteFromList();">Get Route from List</button>
+                <button class="btn btn-success btn-sm" onclick="openRouteModal();">Save Route</button>
+
+              </div>
+              <br>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Location</th>
+                            <th>Latitude</th>
+                            <th>Longitude</th>
+                            <th class="delete-column">Delete</th>
+                        </tr>
+                    </thead>
+                    <tbody id="locations-table-body">
+                        <!-- Dynamic rows will be added here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+  </div>
+
+  <!-- Modal for Adding Location -->
+<!-- Modal for Adding Location -->
+<div class="modal fade" id="locationModal" tabindex="-1" aria-labelledby="locationModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="locationModalLabel">Add Location</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="location-form">
+          <div class="form-group">
+            <label for="locationName">Nama Wilayah</label>
+            <input type="text" class="form-control" id="locationName" placeholder="Enter location name" oninput="searchLocation()">
+            <div id="locationSuggestions" class="list-group"></div>
+          </div>
+          <div class="form-group">
+            <label for="latitude">Latitude</label>
+            <input type="text" class="form-control" id="latitude" placeholder="Enter latitude">
+          </div>
+          <div class="form-group">
+            <label for="longitude">Longitude</label>
+            <input type="text" class="form-control" id="longitude" placeholder="Enter longitude">
+          </div>
+        </form>
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>Nama Wilayah</th>
+              <th>Latitude</th>
+              <th>Longitude</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="search-results-table-body">
+            <!-- Search results will be populated dynamically -->
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" onclick="addLocation()">Add Location</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="routeModal" tabindex="-1" aria-labelledby="routeModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="routeModalLabel">Save Route</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="route-form">
+          <div class="form-group">
+            <label for="routeName">Route Name</label>
+            <input type="text" class="form-control" id="routeName" placeholder="Enter route name">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" onclick="saveRoute();">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Sukses -->
+<div id="successModal" class="modal" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Sukses</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>Rute berhasil disimpan.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal untuk daftar rute -->
+<div class="modal fade" id="routesListModal" tabindex="-1" aria-labelledby="routesListModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="routesListModalLabel">Daftar Rute</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div id="routes-list-container" class="list-group">
+          <!-- Dynamic list of routes will be added here -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal untuk detail rute -->
+<div class="modal fade" id="routeDetailsModal" tabindex="-1" aria-labelledby="routeDetailsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="routeDetailsModalLabel">Detail Rute</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>Location</th>
+              <th>Latitude</th>
+              <th>Longitude</th>
+            </tr>
+          </thead>
+          <tbody id="route-details-table-body">
+            <!-- Dynamic route details will be added here -->
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="loadRouteButton">Load Route</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- The Modal -->
+<div class="modal" id="transportModal">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <h4 class="modal-title">Daftar Angkutan Distribusi Hari Ini</h4>
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body">
+        <button class="btn btn-primary mb-3" id="addTransportBtn" onclick="addTransportRow()">Tambah Angkutan</button>
+        <table class="table table-striped " id="transportTable" >
+          <thead>
+            <tr>
+              <th>Nama Kendaraan</th>
+              <th>Plat Nomor</th>
+              <th>Kondisi</th>
+              <th>Nama Supir</th>
+              <th>Nomor Telepon</th>
+              <th>Status Keberangkatan</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="transportTableBody">
+            <!-- Dynamic rows will be added here -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer">
+        <button type="button" class="btn btn-success" id="saveTransportBtn" onclick="saveTransport()">Simpan</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<!-- Modal for schedule -->
+<div class="modal fade" id="scheduleModal" tabindex="-1" role="dialog" aria-labelledby="scheduleModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="scheduleModalLabel">Jadwal</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="yearSelect">Pilih Tahun:</label>
+          <select id="yearSelect" class="form-control"></select>
+        </div>
+        <div class="form-group">
+          <label for="monthSelect">Pilih Bulan:</label>
+          <select id="monthSelect" class="form-control"></select>
+        </div>
+        <div id="calendar"></div>
+        <div id="scheduleTableContainer" style="display: none;">
+          <h5 id="scheduleDate"></h5>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Nama Kendaraan</th>
+                <th>Barang</th>
+                <th>Jumlah Ton</th>
+                <th>Rute</th>
+                <th>Tanggal</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="scheduleTableBody"></tbody>
+          </table>
+          <button class="btn btn-primary" id="addRowButton">Tambah Jadwal</button>
+          <button class="btn btn-success" id="saveScheduleButton">Simpan Jadwal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="{{ url_for('static', filename='js/routes.js') }}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tempusdominus-bootstrap-4/5.39.0/js/tempusdominus-bootstrap-4.js"></script>
+
+  

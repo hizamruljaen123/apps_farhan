@@ -1,0 +1,175 @@
+<style>
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      display: flex;
+    }
+
+    .sidebar {
+      position: fixed;
+      color: white;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 300px; /* Width of the sidebar */
+      padding: 15px;
+      background-color: #044739; /* Sidebar background color */
+      overflow-y: auto; /* Enable vertical scrolling if needed */
+      z-index: 1000; /* Ensure sidebar is on top */
+      border-right: 1px solid #ddd; /* Sidebar border */
+    }
+
+    .main-content {
+      margin-left: 300px; /* Adjusted margin to account for sidebar width */
+      height: 100vh; /* Full height to cover the viewport */
+      width: calc(100% - 300px); /* Adjusted width to fit remaining space */
+      display: flex;
+      flex-direction: column;
+    }
+
+    #map {
+      flex-grow: 1; /* Use remaining space for the map */
+      width: 100%;
+      padding: 5%;
+    }
+
+    .custom-icon {
+            background-color: #00bcd4;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            transform: rotate(-45deg);
+            border: 2px solid #fff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+    #locations-table {
+      margin-top: 20px; /* Add margin to separate table from map */
+    }
+
+    .nav-link {
+        color: white;
+    }
+
+    .nav-link:hover {
+        color: gold;
+    }
+
+    
+    body {
+      display: flex;
+    }
+    
+    .main-content {
+      flex-grow: 1;
+      padding: 15px;
+    }
+    #map {
+      height: 500px;
+      width: 100%;
+    }
+    .loading-screen {
+      display: none;
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+    .loading-screen img {
+      width: 50px;
+      height: 50px;
+    }
+    #distances-card {
+      background: rgba(255, 255, 255, 0.8);
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+
+    #calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr); /* 7 columns for the days of the week */
+    gap: 5px; /* Space between the days */
+    padding: 10px;
+  }
+
+
+  .calendar-day {
+  display: inline-block;
+  height: 100px;
+  border: 1px solid #ddd;
+  box-sizing: border-box;
+  text-align: center;
+  vertical-align: top;
+  padding: 5px;
+  position: relative;
+}
+
+
+  .calendar-day:hover {
+    background-color: #f0f0f0; /* Hover effect */
+  }
+
+  /* Ensure the modal and select elements are styled properly */
+  .modal-body {
+    overflow-x: hidden;
+  }
+
+  .table{
+    font-size: 12px;
+  }
+
+  select, input{
+    font-size: 12px;
+  }
+  .has-schedule {
+    background-color: teal;
+    color: white;
+    font-weight: bold;
+    position: relative;
+  }
+  .has-schedule:hover {
+    background-color: rgb(8, 61, 61);
+    color: white;
+    font-weight: bold;
+    position: relative;
+  }
+
+  .schedule-count {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    background: rgba(255, 255, 255, 0.7);
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+  </style>
+
+<div class="sidebar">
+    <h3>Supply Chain</h3>
+    <small>Genetic Algorithm Powered</small>
+    <hr style="background-color: white;">
+    <ul class="nav flex-column">
+        <li class="nav-item">
+            <a class="nav-link" href="/">Home</a>
+          </li>
+
+      <li class="nav-item">
+        <a class="nav-link" onclick="openRoutesListModal();">Daftar Rute Distribusi</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" onclick="showCalendarModal()">Jadwal Distribusi</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" onclick="showTransportModal()">Transportasi Angkutan</a>
+      </li>
+      
+    </ul>
+    <hr>
+  </div>

@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template, Response
+from flask import Flask, jsonify, render_template, Response, render_template, request
 import numpy as np
 import random
 from geopy.distance import great_circle
@@ -9,9 +9,19 @@ import matplotlib.pyplot as plt
 import io
 import base64
 import os
+import mysql.connector
+from datetime import datetime
+
 
 app = Flask(__name__)
 
+# Konfigurasi koneksi MySQL
+db_config = {
+    'user': 'root',
+    'password': '',
+    'host': 'localhost',
+    'database': 'ag_data'
+}
 # Define the coordinates for 10 locations in Jakarta (latitude, longitude)
 locations = {
     "Monas": (-6.1753924, 106.8271528),
@@ -25,7 +35,9 @@ locations = {
     "Pondok Indah": (-6.2766, 106.7886),
     "Cibubur": (-6.3674, 106.9012)
 }
-
+# Establish database connection
+def get_db_connection():
+    return mysql.connector.connect(**db_config)
 # Calculate the distance matrix using Haversine formula
 def calculate_distance_matrix(locations):
     num_locations = len(locations)
@@ -176,6 +188,7 @@ def get_real_world_route(locations, best_route):
     return route, G
 
 
+# API
 # Function to get the shortest route data
 @app.route('/shortest_route')
 def get_shortest_route():
@@ -222,5 +235,269 @@ def get_plot():
 
     return jsonify({'message': 'Plot generated and saved as plot.png'})
 
+@app.route('/getroutesfromlist', methods=['POST'])
+def get_routes_from_list():
+    data = request.json
+    input_locations = data['locations']
+
+    # Buat dictionary baru dari input lokasi
+    input_dict = {loc['name']: (loc['lat'], loc['lon']) for loc in input_locations}
+
+    # Hitung distance matrix baru dari input lokasi
+    distance_matrix = calculate_distance_matrix(input_dict)
+    
+    # Run Genetic Algorithm
+    start_index = 0  # Memulai dari lokasi pertama dalam input lokasi
+    ga_generator = genetic_algorithm(distance_matrix, POPULATION_SIZE, MUTATION_RATE, GENERATIONS, start_index)
+    best_route, best_distance = next(ga_generator)
+
+    # Konversi best_route ke nama lokasi
+    best_route_names = [list(input_dict.keys())[i] for i in best_route]
+
+    # Dapatkan real world route menggunakan OSMnx
+    real_world_route, G = get_real_world_route(input_dict, best_route)
+
+    route_data = {
+        'route': real_world_route,
+        'distance': best_distance,
+        'locations': input_dict,
+        'route_names': best_route_names
+    }
+
+    return jsonify(route_data)
+
+# Route untuk mendapatkan daftar rute
+@app.route('/get_routes_list', methods=['GET'])
+def get_routes_list():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT route_id as id, route_name as name FROM routes")
+    routes = [{'id': row[0], 'name': row[1]} for row in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    return jsonify({'routes': routes})
+
+# Route untuk mendapatkan detail rute berdasarkan ID rute
+@app.route('/get_route_details/<int:route_id>', methods=['GET'])
+def get_route_details(route_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, lat, lon FROM route_points WHERE route_id = %s ORDER BY sequence", (route_id,))
+    routes = [{'name': row[0], 'lat': row[1], 'lon': row[2]} for row in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    return jsonify({'routes': routes})
+
+# Route untuk menyimpan rute baru
+@app.route('/save_routes', methods=['POST'])
+def save_routes():
+    data = request.json
+    route_name = data.get('route_name')
+    distance = data.get('distance')
+    routes = data.get('routes')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Insert rute ke tabel routes
+    cursor.execute("INSERT INTO routes (route_name, total_distance) VALUES (%s, %s)", (route_name, distance))
+    route_id = cursor.lastrowid
+
+    # Insert detail rute ke tabel route_points
+    for route in routes:
+        cursor.execute("INSERT INTO route_points (route_id, name, lat, lon, sequence) VALUES (%s, %s, %s, %s, %s)",
+                       (route_id, route['name'], route['lat'], route['lon'], route['sequence']))
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({'success': True})
+
+# Route untuk mendapatkan daftar angkutan
+@app.route('/angkutan_list', methods=['GET'])
+def angkutan_list():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT * FROM transport')
+    transport_data = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify(transport_data)
+
+# Route untuk menyimpan data angkutan
+@app.route('/save_transport', methods=['POST'])
+def save_transport():
+    transport_data = request.json['transport']
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Hapus data yang ada
+    cursor.execute('DELETE FROM transport')
+
+    # Insert data angkutan baru
+    for transport in transport_data:
+        cursor.execute('''
+            INSERT INTO transport (nama_kendaraan, plat_nomor, kondisi, nama_supir, nomor_telepon, status_keberangkatan)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        ''', (transport['nama_kendaraan'], transport['plat_nomor'], transport['kondisi'], transport['nama_supir'], transport['nomor_telepon'], transport['status_keberangkatan']))
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return jsonify({'success': True})
+
+# Route untuk mendapatkan data jadwal
+@app.route('/get_schedule', methods=['GET'])
+def get_schedule():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    query = """
+    SELECT 
+        jadwal.id, 
+        transport.nama_kendaraan, 
+        jadwal.barang, 
+        jadwal.jumlah_ton, 
+        routes.route_name AS nama_rute 
+    FROM jadwal 
+    JOIN transport ON jadwal.id_angkutan = transport.id 
+    JOIN routes ON jadwal.id_rute = routes.route_id 
+    WHERE jadwal.tanggal = %s
+    """
+    date = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
+    cursor.execute(query, (date,))
+    result = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify({date: result})
+
+@app.route('/get_schedule/<year_month>', methods=['GET'])
+def get_scheduleDate(year_month):
+    year, month = year_month.split('-')
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    query = """
+    SELECT 
+        jadwal.id, 
+        transport.nama_kendaraan, 
+        jadwal.barang, 
+        jadwal.jumlah_ton, 
+        routes.route_name AS nama_rute 
+    FROM jadwal 
+    JOIN transport ON jadwal.id_angkutan = transport.id 
+    JOIN routes ON jadwal.id_rute = routes.route_id 
+    WHERE YEAR(jadwal.tanggal) = %s AND MONTH(jadwal.tanggal) = %s
+    """
+    cursor.execute(query, (year, month))
+    result = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify(result)
+
+@app.route('/get_schedule_by_date/<date>', methods=['GET'])
+def get_schedule_by_date(date):
+    # date parameter will be in the format 'YYYY-MM-DD'
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    query = """
+    SELECT 
+        jadwal.id, 
+        DATE_FORMAT(jadwal.tanggal, '%%Y-%%m-%%d') as tanggal,
+        transport.nama_kendaraan, 
+        jadwal.barang, 
+        jadwal.jumlah_ton, 
+        routes.route_name AS nama_rute 
+    FROM jadwal 
+    JOIN transport ON jadwal.id_angkutan = transport.id 
+    JOIN routes ON jadwal.id_rute = routes.route_id 
+    WHERE jadwal.tanggal = %s
+    """
+    cursor.execute(query, (date,))
+    result = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify(result)
+
+@app.route('/save_schedule', methods=['POST'])
+def save_schedule():
+    data = request.get_json()
+    schedule = data.get('schedule', [])
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        for item in schedule:
+            id_angkutan = item.get('id_angkutan')
+            id_rute = item.get('id_rute')
+            barang = item.get('barang')
+            jumlah_ton = item.get('jumlah_ton')
+            date_str = item.get('date')
+
+            # Convert date from 'YYYY-MM-DD' string to date object
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+
+            # Logging for debugging
+            print(f"Inserting schedule: id_angkutan={id_angkutan}, id_rute={id_rute}, barang={barang}, jumlah_ton={jumlah_ton}, tanggal={date_obj}")
+
+            query = """
+                INSERT INTO jadwal (tanggal, id_angkutan, id_rute, barang, jumlah_ton)
+                VALUES (%s, %s, %s, %s, %s)
+            """
+            cursor.execute(query, (date_obj, id_angkutan, id_rute, barang, jumlah_ton))
+
+        conn.commit()
+        response = {'success': True}
+    except mysql.connector.Error as err:
+        conn.rollback()
+        response = {'success': False, 'error': str(err)}
+    finally:
+        cursor.close()
+        conn.close()
+
+    return jsonify(response)
+
+
+
+# Route untuk mendapatkan jumlah jadwal berdasarkan bulan dan tahun
+@app.route('/get_schedule_count/<year_month>', methods=['GET'])
+def get_schedule_count(year_month):
+    year, month = year_month.split('-')
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    query = """
+    SELECT 
+        DATE_FORMAT(tanggal, '%Y-%m-%d') as date,
+        COUNT(*) as count
+    FROM jadwal 
+    WHERE YEAR(tanggal) = %s AND MONTH(tanggal) = %s
+    GROUP BY tanggal
+    """
+    cursor.execute(query, (year, month))
+    result = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify(result)
+
+
+
+
+@app.route('/get_route_list', methods=['GET'])
+def get_route_list():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT route_id AS id, route_name as name FROM routes')
+    route_data = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify(route_data)
+# Front End
+
+
+@app.route('/')
+def routes():
+    return render_template('routes.html')
 if __name__ == '__main__':
     app.run(debug=True)
+
+
