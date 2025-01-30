@@ -112,13 +112,33 @@ function addLocationToTable(locationName, latitude, longitude) {
   newRow.insertCell(1).innerText = latitude;
   newRow.insertCell(2).innerText = longitude;
 
-  const actionCell = newRow.insertCell(3);
+  // Tambahkan kolom baru dengan select form bernama "status"
+  const statusCell = newRow.insertCell(3);
+  const statusSelect = document.createElement('select');
+  statusSelect.className = 'form-control';
+  statusSelect.name = 'status'; // Menambahkan atribut nama
+
+  // Opsi kategori
+  const options = ['Pengepul', 'Pabrik', 'Distributor', 'Pengecer'];
+  options.forEach(option => {
+    const optElement = document.createElement('option');
+    optElement.value = option;
+    optElement.innerText = option;
+    statusSelect.appendChild(optElement);
+  });
+
+  statusCell.appendChild(statusSelect);
+
+  // Tambahkan tombol hapus
+  const actionCell = newRow.insertCell(4);
   const deleteButton = document.createElement('button');
   deleteButton.className = 'btn btn-sm btn-danger';
   deleteButton.innerText = 'Delete';
   deleteButton.onclick = () => tableBody.deleteRow(newRow.rowIndex - 1);
   actionCell.appendChild(deleteButton);
 }
+
+
 
 // Fungsi untuk menambahkan lokasi dari modal ke tabel utama
 function addLocation() {
@@ -300,10 +320,13 @@ function saveRoute() {
   const tableBody = document.getElementById('locations-table-body');
   const routeName = document.getElementById('routeName').value;
   const totalDistance = window.totalDistance || 0; // Total distance should be set when displaying the route
+
+  // Mengambil semua data lokasi beserta statusnya
   const routes = Array.from(tableBody.rows).map((row, index) => ({
     name: row.cells[0].innerText,
     lat: parseFloat(row.cells[1].innerText),
     lon: parseFloat(row.cells[2].innerText),
+    status: row.cells[3].querySelector('select[name="status"]').value, // Ambil nilai dari select "status"
     sequence: index
   }));
 
@@ -374,9 +397,11 @@ function showRouteDetails(routeId) {
         const nameCell = newRow.insertCell(0);
         const latCell = newRow.insertCell(1);
         const lonCell = newRow.insertCell(2);
+        const status = newRow.insertCell(3);
         nameCell.innerText = route.name;
         latCell.innerText = route.lat;
         lonCell.innerText = route.lon;
+        status.innerText = route.status ?? '-';
       });
       document.getElementById('loadRouteButton').onclick = function() {
         loadRouteOnMap(data.routes);
@@ -437,9 +462,11 @@ function loadRouteOnMap(routes) {
           const nameCell = newRow.insertCell(0);
           const latCell = newRow.insertCell(1);
           const lonCell = newRow.insertCell(2);
+          const status= newRow.insertCell(3);
           nameCell.innerText = route.name;
           latCell.innerText = route.lat;
           lonCell.innerText = route.lon;
+          status.innerText = route.status ?? '-';
         });
 
         document.querySelectorAll('.delete-column').forEach(column => {

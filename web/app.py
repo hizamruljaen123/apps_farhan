@@ -282,8 +282,8 @@ def get_routes_list():
 def get_route_details(route_id):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT name, lat, lon FROM route_points WHERE route_id = %s ORDER BY sequence", (route_id,))
-    routes = [{'name': row[0], 'lat': row[1], 'lon': row[2]} for row in cursor.fetchall()]
+    cursor.execute("SELECT name, lat, lon, status FROM route_points WHERE route_id = %s ORDER BY sequence", (route_id,))
+    routes = [{'name': row[0], 'lat': row[1], 'lon': row[2], 'status': row[3]} for row in cursor.fetchall()]
     cursor.close()
     conn.close()
     return jsonify({'routes': routes})
@@ -296,22 +296,26 @@ def save_routes():
     distance = data.get('distance')
     routes = data.get('routes')
 
+    # Mendapatkan timestamp saat ini dalam format yang mudah dibaca manusia
+    created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Insert rute ke tabel routes
-    cursor.execute("INSERT INTO routes (route_name, total_distance) VALUES (%s, %s)", (route_name, distance))
+    # Insert rute ke tabel routes dengan timestamp yang telah diformat
+    cursor.execute("INSERT INTO routes (route_name, total_distance, created_at) VALUES (%s, %s, %s)", 
+                   (route_name, distance, created_at))
     route_id = cursor.lastrowid
 
     # Insert detail rute ke tabel route_points
     for route in routes:
-        cursor.execute("INSERT INTO route_points (route_id, name, lat, lon, sequence) VALUES (%s, %s, %s, %s, %s)",
-                       (route_id, route['name'], route['lat'], route['lon'], route['sequence']))
+        cursor.execute("INSERT INTO route_points (route_id, name, lat, lon, sequence, status) VALUES (%s, %s, %s, %s, %s, %s)",
+                       (route_id, route['name'], route['lat'], route['lon'], route['sequence'], route['status']))
 
     conn.commit()
     cursor.close()
     conn.close()
-    return jsonify({'success': True})
+    return jsonify({'success': True, 'route_id': route_id, 'created_at': created_at})
 
 # Route untuk mendapatkan daftar angkutan
 @app.route('/angkutan_list', methods=['GET'])
